@@ -1,0 +1,725 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DPDP Gap Check</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@400;500&display=swap">
+<style>
+  /* Layout: a setup panel you fill once, a findings ledger below it, and a
+     chat column that stays available the whole time; one column under 900px. */
+  :root {
+    --paper: #f6f7f9; --card: #ffffff; --sunk: #eef0f4;
+    --ink: #15171c; --ink-soft: #5a6472; --rule: #dcdfe6;
+    --accent: #2f3d9e; --accent-soft: #e8ebfa;
+    --gap: #b3261e; --gap-soft: #fdecea;
+    --partial: #8a5a00; --partial-soft: #fdf3dd;
+    --met: #1a7f4b; --met-soft: #e6f4ec;
+    --unknown: #5a6472; --unknown-soft: #eef0f4;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --serif: "IBM Plex Serif", Georgia, serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0e1016; --card: #161a22; --sunk: #1d222c;
+      --ink: #e8ebf1; --ink-soft: #99a3b4; --rule: #2a3140;
+      --accent: #9aa9ff; --accent-soft: #1b2142;
+      --gap: #ff8077; --gap-soft: #2e1a18;
+      --partial: #e0b341; --partial-soft: #2a2317;
+      --met: #5ccb8c; --met-soft: #14291d;
+      --unknown: #99a3b4; --unknown-soft: #1d222c;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0e1016; --card: #161a22; --sunk: #1d222c;
+    --ink: #e8ebf1; --ink-soft: #99a3b4; --rule: #2a3140;
+    --accent: #9aa9ff; --accent-soft: #1b2142;
+    --gap: #ff8077; --gap-soft: #2e1a18;
+    --partial: #e0b341; --partial-soft: #2a2317;
+    --met: #5ccb8c; --met-soft: #14291d;
+    --unknown: #99a3b4; --unknown-soft: #1d222c;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+         font-family: var(--sans); font-size: 15px; line-height: 1.55; }
+  .wrap { max-width: 1240px; margin: 0 auto;
+          padding-block: 22px 72px; padding-left: 16px; padding-right: 16px; }
+
+  .masthead { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+              border-bottom: 2px solid var(--ink); padding-bottom: 10px; }
+  h1 { font-family: var(--serif); font-size: clamp(22px, 4vw, 30px); margin: 0;
+       font-weight: 500; letter-spacing: -0.015em; }
+  .masthead p { margin: 0; color: var(--ink-soft); font-size: 13px; flex: 1 1 200px; min-width: 0; }
+  .ghostBtn { font: inherit; font-size: 12px; cursor: pointer; color: var(--ink-soft);
+              background: none; border: 1px solid var(--rule); border-radius: 999px; padding: 3px 11px; }
+  .ghostBtn:hover:not(:disabled) { color: var(--ink); }
+  .ghostBtn:disabled { opacity: .5; cursor: default; }
+
+  .cols { display: grid; grid-template-columns: 1.45fr 1fr; gap: 18px; margin-top: 20px; align-items: start; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+  .col { min-width: 0; }
+
+  .card { background: var(--card); border: 1px solid var(--rule); border-radius: 11px; padding: 15px; }
+  .card + .card { margin-top: 14px; }
+  h2 { font-size: 11.5px; text-transform: uppercase; letter-spacing: .09em;
+       color: var(--ink-soft); font-weight: 600; margin: 0 0 11px; }
+  .row { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+  .grow { flex: 1 1 auto; }
+
+  label.f { display: block; font-size: 12px; color: var(--ink-soft); margin-bottom: 4px; }
+  input[type=text], select, textarea {
+    width: 100%; font: inherit; font-size: 14px; padding: 8px 11px; border-radius: 8px;
+    border: 1px solid var(--rule); background: var(--sunk); color: var(--ink);
+  }
+  textarea { min-height: 120px; resize: vertical; font-size: 13.5px; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+  @media (max-width: 560px) { .fields { grid-template-columns: 1fr; } }
+
+  .checks { display: flex; flex-direction: column; gap: 7px; margin-top: 12px; }
+  .checks label { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; cursor: pointer; }
+  .checks input { margin-top: 3px; accent-color: var(--accent); flex: none; }
+
+  .btn { font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+         padding: 10px 20px; border: none; border-radius: 9px;
+         background: var(--accent); color: #fff; }
+  .btn:disabled { opacity: .55; cursor: default; }
+
+  .docs { margin-top: 12px; }
+  .drop { border: 1.5px dashed var(--rule); border-radius: 9px; padding: 14px;
+          text-align: center; color: var(--ink-soft); font-size: 13px; }
+  .drop.over { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .doclist { display: flex; flex-direction: column; gap: 6px; margin-top: 9px; }
+  .doc { display: flex; gap: 8px; align-items: center; font-size: 12.5px;
+         background: var(--sunk); border-radius: 7px; padding: 6px 10px; }
+  .doc .nm { font-family: var(--mono); font-size: 12px; overflow: hidden;
+             text-overflow: ellipsis; white-space: nowrap; }
+  .doc .sz { color: var(--ink-soft); font-size: 11.5px; white-space: nowrap; }
+  .x { font: inherit; background: none; border: none; cursor: pointer;
+       color: var(--ink-soft); padding: 0 2px; font-size: 15px; line-height: 1; }
+  .x:hover { color: var(--gap); }
+
+  /* findings */
+  .summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 13px; }
+  .stat { flex: 1 1 86px; background: var(--sunk); border-radius: 9px; padding: 9px 11px; }
+  .stat b { display: block; font-size: 21px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .stat span { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+  .stat.gap b { color: var(--gap); } .stat.partial b { color: var(--partial); }
+  .stat.met b { color: var(--met); } .stat.unknown b { color: var(--unknown); }
+
+  .finding { border: 1px solid var(--rule); border-radius: 10px; margin-bottom: 9px;
+             background: var(--card); border-left: 3px solid var(--unknown); }
+  .finding.gap { border-left-color: var(--gap); }
+  .finding.partial { border-left-color: var(--partial); }
+  .finding.met { border-left-color: var(--met); }
+  .finding > summary { cursor: pointer; padding: 11px 13px; list-style: none; display: flex;
+                       gap: 9px; align-items: flex-start; }
+  .finding > summary::-webkit-details-marker { display: none; }
+  .pill { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+          padding: 2px 8px; border-radius: 999px; white-space: nowrap; flex: none; margin-top: 2px; }
+  .pill.gap { background: var(--gap-soft); color: var(--gap); }
+  .pill.partial { background: var(--partial-soft); color: var(--partial); }
+  .pill.met { background: var(--met-soft); color: var(--met); }
+  .pill.unknown { background: var(--unknown-soft); color: var(--unknown); }
+  .finding .ttl { font-weight: 550; font-size: 14px; }
+  .finding .cites { font-family: var(--mono); font-size: 11.5px; color: var(--accent); margin-top: 3px; }
+  .finding .inner { padding: 0 13px 13px; border-top: 1px solid var(--rule); padding-top: 11px; margin-top: 2px; }
+  .finding .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
+                  color: var(--ink-soft); font-weight: 600; margin-top: 10px; }
+  .finding .lbl:first-child { margin-top: 0; }
+  .finding .val { font-size: 13.5px; margin-top: 3px; }
+  .finding blockquote { margin: 4px 0 0; padding-left: 10px; border-left: 2px solid var(--rule);
+                        font-family: var(--serif); font-size: 13px; color: var(--ink-soft); }
+
+  /* chat */
+  .chat { display: flex; flex-direction: column; gap: 10px; }
+  .msgs { display: flex; flex-direction: column; gap: 10px; max-height: 460px;
+          overflow-y: auto; padding-right: 2px; }
+  .msg { font-size: 13.5px; }
+  .msg .who { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
+              color: var(--ink-soft); font-weight: 600; margin-bottom: 3px; }
+  .msg .txt { white-space: pre-wrap; word-wrap: break-word; }
+  .msg.you .txt { background: var(--accent-soft); color: var(--accent);
+                  padding: 8px 11px; border-radius: 9px; display: inline-block; }
+  .msg cite, mark.c { background: var(--accent-soft); color: var(--accent); font-style: normal;
+                      padding: 0 4px; border-radius: 4px; font-family: var(--mono);
+                      font-size: 11.5px; font-weight: 500; }
+  .chatbar { display: flex; gap: 7px; }
+  .chatbar input { flex: 1 1 auto; min-width: 0; }
+
+  .note { font-size: 12.5px; color: var(--ink-soft); margin-top: 10px; }
+  .warn { background: var(--partial-soft); border: 1px solid var(--partial); color: var(--partial);
+          border-radius: 9px; padding: 10px 13px; font-size: 12.5px; margin-top: 14px; }
+  .empty { color: var(--ink-soft); font-size: 13.5px; }
+  .spin { display: inline-block; width: 11px; height: 11px; border: 2px solid var(--rule);
+          border-top-color: var(--accent); border-radius: 50%; animation: sp .7s linear infinite;
+          vertical-align: -1px; margin-right: 6px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+  footer { margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--rule);
+           font-size: 12px; color: var(--ink-soft); }
+</style>
+
+<div class="wrap">
+  <div class="masthead">
+    <h1>DPDP Gap Check</h1>
+    <p>Put your company's documents in. Get back which obligations of the DPDP Act 2023 and Rules 2025 you are not meeting, with the clause and the fix.</p>
+    <button class="ghostBtn" id="themeBtn">theme</button>
+  </div>
+
+  <div class="cols">
+    <div class="col">
+      <div class="card">
+        <h2>1 &mdash; Your company</h2>
+        <div class="fields">
+          <div><label class="f" for="coName">Company name</label>
+            <input type="text" id="coName" placeholder="Acme Financial Services Pvt Ltd"></div>
+          <div><label class="f" for="coSector">Sector</label>
+            <select id="coSector">
+              <option>Fintech / NBFC / lending</option>
+              <option>E-commerce / marketplace</option>
+              <option>SaaS / B2B software</option>
+              <option>Healthcare / diagnostics</option>
+              <option>Edtech / education</option>
+              <option>Online gaming</option>
+              <option>Social media / content</option>
+              <option>Insurance</option>
+              <option>Logistics / mobility</option>
+              <option>Other</option>
+            </select></div>
+        </div>
+        <div style="margin-top:11px"><label class="f" for="coProduct">What the product does, and what personal data it collects</label>
+          <input type="text" id="coProduct" placeholder="Lending app; collects PAN, Aadhaar, bank statements, location, contacts"></div>
+        <div class="checks">
+          <label><input type="checkbox" id="fChildren"> We collect data from users under 18, or cannot rule it out</label>
+          <label><input type="checkbox" id="fCrossBorder"> Personal data is stored or processed outside India (any cloud region, any vendor)</label>
+          <label><input type="checkbox" id="fProcessors"> Third parties process personal data for us (cloud, analytics, support, KYC vendors)</label>
+          <label><input type="checkbox" id="fLarge"> Over 2 crore users in India, or we handle financial or health data at scale</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>2 &mdash; Your documents</h2>
+        <p class="empty" style="margin-top:-4px">Privacy policy, terms, consent screens, MOA/AOA, security policy, vendor contracts, RoPA &mdash; whatever you have. Text is read in your browser.</p>
+        <div class="docs">
+          <div class="drop" id="drop">
+            <input type="file" id="file" multiple accept=".txt,.md,.json,.csv,.html,.pdf" hidden>
+            Drop files here, or <button class="ghostBtn" id="pick" type="button">choose files</button>
+          </div>
+          <div class="doclist" id="doclist"></div>
+        </div>
+        <div style="margin-top:12px"><label class="f" for="paste">Or paste text (your privacy policy is the single most useful one)</label>
+          <textarea id="paste" placeholder="Paste your privacy policy, consent notice or any other document here."></textarea></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn" id="run">Run gap check</button>
+          <button class="ghostBtn" id="demo" type="button">Load an example</button>
+          <span class="grow"></span>
+          <span class="empty" id="inputStat"></span>
+        </div>
+      </div>
+
+      <div class="card" id="resultsCard">
+        <h2>3 &mdash; Findings <span id="findCount" style="float:right;font-family:var(--mono);text-transform:none;letter-spacing:0"></span></h2>
+        <div class="summary" id="summary" hidden></div>
+        <div id="findings" class="empty">
+          Nothing checked yet. Fill in section 1, add a document or paste text, then run the check.
+          Every finding comes back with the exact clause it rests on.
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <h2>Ask about your results</h2>
+        <div class="chat">
+          <div class="msgs" id="msgs"></div>
+          <div class="chatbar">
+            <input type="text" id="ask" placeholder="e.g. what do I fix first?">
+            <button class="btn" id="send" style="padding:8px 15px">Send</button>
+          </div>
+        </div>
+        <p class="note" id="chatNote">Answers are grounded in the two statutes and whatever you put in above.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="warn" id="warn" hidden></div>
+
+  <footer id="foot">
+    Checked against the DPDP Act 2023 and the DPDP Rules 2025 only &mdash; no CERT-In,
+    RBI, SEBI or IRDAI obligations, which many companies also have. A readiness aid,
+    not legal advice, and not a substitute for counsel signing off.
+  </footer>
+</div>
+
+<script type="application/json" id="corpusData">__CORPUS__</script>
+<script>
+(function () {
+  "use strict";
+  var DATA = JSON.parse(document.getElementById("corpusData").textContent);
+  var RECORDS = DATA.records, UNITS = DATA.units;
+
+__ENGINE_JS__
+
+  // window.claude only exists inside the artifact viewer; everywhere else the
+  // page must still render instead of throwing.
+  function useSample() {
+    var c = window.claude;
+    return (c && typeof c.use === "function")
+      ? c.use("sample")
+      : Promise.resolve(null);
+  }
+
+  // ---------------------------------------------------------------- checklist
+  // Each item names the provisions it rests on and the query used to pull the
+  // clause text, so a finding can always be traced to statute.
+  var CHECKS = [
+    { id: "notice", title: "Notice to the data principal",
+      q: "notice itemised description personal data specified purpose withdraw consent",
+      cites: "Section 5, Rule 3" },
+    { id: "consent", title: "Consent: free, specific, informed, withdrawable",
+      q: "consent free specific informed unconditional unambiguous withdraw ease",
+      cites: "Section 6" },
+    { id: "children", title: "Children's data and verifiable parental consent",
+      q: "verifiable consent parent child tracking behavioural monitoring targeted advertising",
+      cites: "Section 9, Rule 10", onlyIf: "children" },
+    { id: "security", title: "Reasonable security safeguards",
+      q: "reasonable security safeguards encryption masking access control logs backups",
+      cites: "Section 8(5), Rule 6" },
+    { id: "breach", title: "Personal data breach intimation",
+      q: "intimation personal data breach Board seventy-two hours affected data principal",
+      cites: "Section 8(6), Rule 7" },
+    { id: "retention", title: "Erasure, retention and the one-year log floor",
+      q: "erase personal data consent withdrawn retain logs one year forty-eight hours",
+      cites: "Section 8(7), Rule 8" },
+    { id: "grievance", title: "Grievance redressal and published contact",
+      q: "grievance redressal mechanism Data Protection Officer business contact information publish",
+      cites: "Section 13, Rules 9 and 14(3)" },
+    { id: "rights", title: "Data principal rights: access, correction, nomination",
+      q: "right to access information correction erasure nominate summary processing",
+      cites: "Sections 11 to 14, Rule 14" },
+    { id: "processors", title: "Processor engaged only under a valid contract",
+      q: "Data Processor valid contract engage appoint behalf security safeguards",
+      cites: "Section 8(2), Rule 6(1)(f)", onlyIf: "processors" },
+    { id: "crossborder", title: "Transfer of personal data outside India",
+      q: "transfer personal data outside the territory of India foreign State restriction",
+      cites: "Section 16, Rule 15", onlyIf: "crossborder" },
+    { id: "sdf", title: "Significant Data Fiduciary duties",
+      q: "Significant Data Fiduciary Data Protection Impact Assessment audit algorithmic due diligence",
+      cites: "Section 10, Rule 13", onlyIf: "large" }
+  ];
+
+  var STATUS = ["gap", "partial", "met", "unknown"];
+  var state = { findings: [], docs: [], chat: [], running: false };
+
+  // ------------------------------------------------------------------- inputs
+  function profile() {
+    return {
+      name: document.getElementById("coName").value.trim() || "(unnamed company)",
+      sector: document.getElementById("coSector").value,
+      product: document.getElementById("coProduct").value.trim(),
+      children: document.getElementById("fChildren").checked,
+      crossborder: document.getElementById("fCrossBorder").checked,
+      processors: document.getElementById("fProcessors").checked,
+      large: document.getElementById("fLarge").checked
+    };
+  }
+
+  function corpusText() {
+    var parts = state.docs.map(function (d) {
+      return "=== " + d.name + " ===\n" + d.text;
+    });
+    var pasted = document.getElementById("paste").value.trim();
+    if (pasted) parts.push("=== pasted text ===\n" + pasted);
+    return parts.join("\n\n");
+  }
+
+  function updateStat() {
+    var n = corpusText().length;
+    document.getElementById("inputStat").textContent =
+      n ? (n.toLocaleString() + " characters of documents") : "no documents yet";
+  }
+
+  function renderDocs() {
+    document.getElementById("doclist").innerHTML = state.docs.map(function (d, i) {
+      return '<div class="doc"><span class="nm grow">' + esc(d.name) + '</span>' +
+        '<span class="sz">' + Math.round(d.text.length / 1024) + ' KB text</span>' +
+        '<button class="x" data-i="' + i + '" title="Remove">&times;</button></div>';
+    }).join("");
+    Array.prototype.forEach.call(document.querySelectorAll(".doc .x"), function (b) {
+      b.addEventListener("click", function () {
+        state.docs.splice(+b.dataset.i, 1); renderDocs(); updateStat();
+      });
+    });
+    updateStat();
+  }
+
+  function readPdf(file) {
+    // pdf.js needs a cross-origin worker, which can be blocked; fall back loudly
+    // rather than silently handing the model an empty document.
+    if (!window.pdfjsLib) return Promise.reject(new Error("pdf reader unavailable"));
+    return file.arrayBuffer().then(function (buf) {
+      return window.pdfjsLib.getDocument({ data: buf }).promise;
+    }).then(function (pdf) {
+      var pages = [];
+      for (var i = 1; i <= pdf.numPages; i++) pages.push(i);
+      return pages.reduce(function (chain, n) {
+        return chain.then(function (acc) {
+          return pdf.getPage(n).then(function (p) { return p.getTextContent(); })
+            .then(function (tc) {
+              return acc + tc.items.map(function (it) { return it.str; }).join(" ") + "\n";
+            });
+        });
+      }, Promise.resolve(""));
+    });
+  }
+
+  function addFiles(list) {
+    Array.prototype.forEach.call(list, function (f) {
+      var isPdf = /\.pdf$/i.test(f.name);
+      var job = isPdf ? readPdf(f) : f.text();
+      job.then(function (text) {
+        text = String(text).replace(/\u0000/g, "").trim();
+        if (!text) throw new Error("no text found");
+        state.docs.push({ name: f.name, text: text });
+        renderDocs();
+      }).catch(function (err) {
+        warn('Could not read "' + f.name + '" (' + err.message +
+             '). Open it, copy the text, and paste it into the box below instead.');
+      });
+    });
+  }
+
+  function warn(msg) {
+    var w = document.getElementById("warn");
+    w.hidden = false; w.textContent = msg;
+  }
+
+  // ------------------------------------------------------------- the gap check
+  function provisionsFor(check) {
+    var res = answerFor(check.q, 3);
+    return res.clauses.slice(0, 4).map(function (u) {
+      return u.cite + " — " + u.text;
+    }).join("\n");
+  }
+
+  function buildPrompt(p, docs, checks) {
+    var blocks = checks.map(function (c) {
+      return "## " + c.id + " — " + c.title + "\nProvisions:\n" + provisionsFor(c);
+    }).join("\n\n");
+
+    return [
+      "You are assessing one company against India's DPDP Act 2023 and DPDP Rules 2025.",
+      "",
+      "RULES:",
+      "1. Judge ONLY against the provisions quoted below. Cite the clause for every finding.",
+      "2. Judge ONLY on evidence in the company documents. If a document does not address an",
+      "   obligation, the status is \"unknown\" and you say what document would settle it.",
+      "   Absence of evidence is never \"met\" and never \"gap\" - it is \"unknown\".",
+      "3. Quote the company's own words as evidence when you have them, verbatim and short.",
+      "4. Never cite CERT-In, RBI, SEBI, IRDAI, GDPR or any law not quoted below.",
+      "5. \"fix\" must be a concrete action for this company, not a restatement of the law.",
+      "",
+      "COMPANY",
+      "Name: " + p.name,
+      "Sector: " + p.sector,
+      "Product and data collected: " + (p.product || "(not stated)"),
+      "Self-reported: children's data=" + p.children + ", data leaves India=" + p.crossborder +
+        ", uses processors=" + p.processors + ", large-scale/SDF-likely=" + p.large,
+      "",
+      "COMPANY DOCUMENTS",
+      docs ? docs.slice(0, 48000) : "(none supplied)",
+      "",
+      "OBLIGATIONS TO ASSESS, each with the governing provisions",
+      blocks,
+      "",
+      "Return JSON only: {\"findings\":[{\"id\":\"<obligation id>\",\"status\":\"gap|partial|met|unknown\",",
+      "\"reason\":\"one or two sentences on what the documents do or do not show\",",
+      "\"evidence\":\"a short verbatim quote from the company documents, or empty\",",
+      "\"cites\":\"the clause(s), e.g. Rule 7(2)(b)\",\"fix\":\"the concrete next action\"}]}",
+      "Include every obligation id exactly once."
+    ].join("\n");
+  }
+
+  function activeChecks(p) {
+    return CHECKS.filter(function (c) { return !c.onlyIf || p[c.onlyIf]; });
+  }
+
+  function renderFindings() {
+    var box = document.getElementById("findings");
+    if (!state.findings.length) { return; }
+    var counts = { gap: 0, partial: 0, met: 0, unknown: 0 };
+    state.findings.forEach(function (f) { counts[f.status] = (counts[f.status] || 0) + 1; });
+
+    var sum = document.getElementById("summary");
+    sum.hidden = false;
+    sum.innerHTML = STATUS.map(function (s) {
+      var label = { gap: "gaps", partial: "partial", met: "met", unknown: "no evidence" }[s];
+      return '<div class="stat ' + s + '"><b>' + (counts[s] || 0) + "</b><span>" + label + "</span></div>";
+    }).join("");
+    document.getElementById("findCount").textContent =
+      state.findings.length + " obligations checked";
+
+    var order = { gap: 0, partial: 1, unknown: 2, met: 3 };
+    var sorted = state.findings.slice().sort(function (a, b) {
+      return order[a.status] - order[b.status];
+    });
+
+    box.className = "";
+    box.innerHTML = sorted.map(function (f, i) {
+      var open = i < 3 && f.status !== "met";
+      return '<details class="finding ' + f.status + '"' + (open ? " open" : "") + '>' +
+        '<summary><span class="pill ' + f.status + '">' +
+          { gap: "gap", partial: "partial", met: "met", unknown: "no evidence" }[f.status] +
+        '</span><span class="grow"><span class="ttl">' + esc(f.title) + "</span>" +
+        '<div class="cites">' + esc(f.cites || "") + "</div></span></summary>" +
+        '<div class="inner">' +
+          '<div class="lbl">What your documents show</div><div class="val">' + esc(f.reason || "") + "</div>" +
+          (f.evidence ? '<div class="lbl">Your own words</div><blockquote>' + esc(f.evidence) + "</blockquote>" : "") +
+          '<div class="lbl">Do this</div><div class="val">' + esc(f.fix || "") + "</div>" +
+        "</div></details>";
+    }).join("");
+  }
+
+  function setRunning(on, label) {
+    state.running = on;
+    var b = document.getElementById("run");
+    b.disabled = on;
+    b.innerHTML = on ? '<span class="spin"></span>' + (label || "Checking...") : "Run gap check";
+  }
+
+  function runCheck() {
+    if (state.running) return;
+    var p = profile(), docs = corpusText();
+    if (!docs) {
+      warn("Add a document or paste some text first. With nothing to read, every " +
+           "obligation comes back as 'no evidence', which tells you nothing.");
+      return;
+    }
+    document.getElementById("warn").hidden = true;
+
+    var checks = activeChecks(p);
+    setRunning(true, "Checking " + checks.length + " obligations...");
+    document.getElementById("findings").className = "empty";
+    document.getElementById("findings").innerHTML =
+      '<span class="spin"></span>Reading your documents against ' + checks.length + " obligations.";
+
+    useSample().then(function (sample) {
+      if (!sample) throw new Error("not_granted");
+      return sample.json(buildPrompt(p, docs, checks), { modelTier: "complex" });
+    }).then(function (out) {
+      var byId = {};
+      checks.forEach(function (c) { byId[c.id] = c; });
+      var got = (out && out.findings) || [];
+      state.findings = got.filter(function (f) { return byId[f.id]; }).map(function (f) {
+        var c = byId[f.id];
+        return {
+          id: f.id, title: c.title,
+          status: STATUS.indexOf(f.status) >= 0 ? f.status : "unknown",
+          reason: f.reason, evidence: f.evidence,
+          cites: f.cites || c.cites, fix: f.fix
+        };
+      });
+      // An obligation the model skipped is unchecked, not compliant.
+      checks.forEach(function (c) {
+        if (!state.findings.some(function (f) { return f.id === c.id; })) {
+          state.findings.push({ id: c.id, title: c.title, status: "unknown",
+            reason: "This obligation was not assessed. Run the check again.",
+            evidence: "", cites: c.cites, fix: "Re-run the gap check." });
+        }
+      });
+      renderFindings();
+      setRunning(false);
+    }).catch(function (err) {
+      setRunning(false);
+      document.getElementById("findings").className = "empty";
+      document.getElementById("findings").textContent =
+        "The check could not run (" + (err && (err.code || err.message) || "unknown") + ").";
+      if (err && err.code === "not_granted") {
+        warn("This page needs permission to ask Claude. Allow it from the artifact's " +
+             "Permissions menu, then run the check again.");
+      } else if (err && err.code === "rate_limited") {
+        warn("Rate limited. Wait a minute and run it again.");
+      }
+    });
+  }
+
+  // ------------------------------------------------------------------- chat
+  function pushMsg(who, text) {
+    state.chat.push({ who: who, text: text });
+    renderChat();
+  }
+  function renderChat() {
+    var box = document.getElementById("msgs");
+    box.innerHTML = state.chat.map(function (m) {
+      var body = esc(m.text).replace(
+        /\b(?:Section|Rule)\s+\d+(?:\([0-9a-zA-Z]+\))*|\b(?:First|Second|Third|Fourth|Fifth|Sixth|Seventh)\s+Schedule\b/g,
+        function (x) { return '<mark class="c">' + x + "</mark>"; });
+      return '<div class="msg ' + (m.who === "you" ? "you" : "ai") + '">' +
+        '<div class="who">' + (m.who === "you" ? "You" : "Claude") + "</div>" +
+        '<div class="txt">' + body + "</div></div>";
+    }).join("");
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function sendChat() {
+    var input = document.getElementById("ask");
+    var q = input.value.trim();
+    if (!q || state.running) return;
+    input.value = "";
+    pushMsg("you", q);
+    pushMsg("claude", "Thinking...");
+    var slot = state.chat.length - 1;
+
+    var res = answerFor(q, 4);
+    var provisions = res.clauses.map(function (u) { return u.cite + " — " + u.text; }).join("\n");
+    var findings = state.findings.length
+      ? state.findings.map(function (f) {
+          return f.status.toUpperCase() + " " + f.title + " (" + f.cites + "): " + f.reason;
+        }).join("\n")
+      : "(the gap check has not been run yet)";
+
+    var history = state.chat.slice(0, -2).slice(-8).map(function (m) {
+      return { role: m.who === "you" ? "user" : "assistant", content: m.text };
+    });
+
+    var p = profile();
+    var prompt = [
+      "You are advising " + p.name + " (" + p.sector + ") on India's DPDP Act 2023 and Rules 2025.",
+      "Answer ONLY from the provisions and the gap-check results below. Cite the clause",
+      "(e.g. Rule 7(2)(b)) for anything you assert about the law. If the answer is not in",
+      "them, say so plainly. Never cite CERT-In, RBI, SEBI, IRDAI or GDPR. Be brief and direct.",
+      "",
+      "GAP CHECK RESULTS", findings,
+      "", "RELEVANT PROVISIONS", provisions || "(nothing matched)",
+      "", "COMPANY DOCUMENTS (excerpt)", corpusText().slice(0, 12000) || "(none supplied)",
+      "", "QUESTION", q
+    ].join("\n");
+
+    useSample().then(function (sample) {
+      if (!sample) throw new Error("not_granted");
+      return sample(history.concat([{ role: "user", content: prompt }]), {
+        onText: function (ev) { state.chat[slot].text = ev.text; renderChat(); }
+      });
+    }).then(function (out) {
+      state.chat[slot].text = out.text; renderChat();
+    }).catch(function (err) {
+      state.chat[slot].text = "Could not answer (" +
+        (err && (err.code || err.message) || "unknown") + ").";
+      renderChat();
+    });
+  }
+
+  // ------------------------------------------------------------------ example
+  var EXAMPLE = {
+    name: "Paytring Technologies Pvt Ltd",
+    sector: "Fintech / NBFC / lending",
+    product: "Salary-advance lending app; collects PAN, Aadhaar eKYC, bank statements, device location, SMS and contacts",
+    children: false, crossborder: true, processors: true, large: false,
+    doc: [
+      "PRIVACY POLICY — Paytring Technologies Pvt Ltd (last updated 2024)",
+      "",
+      "1. By downloading and using the Paytring app you agree to this policy and consent to",
+      "our collection and use of your information for any purpose connected with our services",
+      "and such other purposes as we may determine from time to time.",
+      "",
+      "2. We collect your name, mobile number, email, PAN, Aadhaar number, bank account",
+      "statements, device location, SMS messages, contact list and device identifiers.",
+      "",
+      "3. We may share your information with our lending partners, credit bureaus, recovery",
+      "agencies, analytics providers and other third parties for business purposes. Our",
+      "servers and certain vendors are located in Singapore and the United States.",
+      "",
+      "4. We retain your information indefinitely in order to improve our services and for",
+      "such period as we consider appropriate.",
+      "",
+      "5. We use industry-standard measures to keep your data safe.",
+      "",
+      "6. For any questions write to support@paytring.example.",
+      "",
+      "7. This policy may be amended at any time without notice and your continued use of",
+      "the app constitutes acceptance of the amended policy."
+    ].join("\n")
+  };
+
+  function loadExample() {
+    document.getElementById("coName").value = EXAMPLE.name;
+    document.getElementById("coSector").value = EXAMPLE.sector;
+    document.getElementById("coProduct").value = EXAMPLE.product;
+    document.getElementById("fChildren").checked = EXAMPLE.children;
+    document.getElementById("fCrossBorder").checked = EXAMPLE.crossborder;
+    document.getElementById("fProcessors").checked = EXAMPLE.processors;
+    document.getElementById("fLarge").checked = EXAMPLE.large;
+    document.getElementById("paste").value = EXAMPLE.doc;
+    state.docs = [];
+    renderDocs();
+    warn("Loaded an example policy, written to fail in the usual ways. " +
+         "Replace it with your own before trusting anything.");
+  }
+
+  // ------------------------------------------------------------------- wiring
+  document.getElementById("run").addEventListener("click", runCheck);
+  document.getElementById("demo").addEventListener("click", loadExample);
+  document.getElementById("send").addEventListener("click", sendChat);
+  document.getElementById("ask").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); sendChat(); }
+  });
+  document.getElementById("paste").addEventListener("input", updateStat);
+  document.getElementById("pick").addEventListener("click", function () {
+    document.getElementById("file").click();
+  });
+  document.getElementById("file").addEventListener("change", function (e) {
+    addFiles(e.target.files); e.target.value = "";
+  });
+  var drop = document.getElementById("drop");
+  ["dragenter", "dragover"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("over"); });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("over"); });
+  });
+  drop.addEventListener("drop", function (e) {
+    if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+  });
+
+  document.getElementById("themeBtn").addEventListener("click", function () {
+    var cur = document.documentElement.getAttribute("data-theme");
+    var next = cur === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("dpdp-theme", next); } catch (_) {}
+  });
+  try {
+    var saved = localStorage.getItem("dpdp-theme");
+    if (saved) document.documentElement.setAttribute("data-theme", saved);
+  } catch (_) {}
+
+  if (DATA.meta.penaltiesVerified === false) {
+    document.getElementById("foot").innerHTML +=
+      "<br>Penalty figures in the corpus are hand-transcribed from the Gazette and not yet verified.";
+  }
+
+  pushMsg("claude", "Fill in your company above, add a document, and run the gap check. " +
+    "Then ask me anything about the results — what to fix first, what a clause actually " +
+    "requires, or what a finding would take to close.");
+  updateStat();
+
+  // The page works without Claude for everything except the check and the chat.
+  useSample().then(function (s) {
+    if (!s) {
+      document.getElementById("chatNote").textContent =
+        "Claude is not available in this view, so the gap check and chat cannot run here.";
+      document.getElementById("run").disabled = true;
+      document.getElementById("send").disabled = true;
+    }
+  });
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (window.pdfjsLib) {
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+</script>

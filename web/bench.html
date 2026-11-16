@@ -1,0 +1,240 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DPDP Clause Assistant</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@400;500&display=swap">
+<style>
+  /* Layout: masthead, a conversation column, composer pinned at the bottom. */
+  :root {
+    --paper: #f6f7f9; --card: #ffffff; --sunk: #eef0f4;
+    --ink: #15171c; --ink-soft: #5a6472; --rule: #dcdfe6;
+    --accent: #2f3d9e; --accent-soft: #e8ebfa;
+    --flag: #8a5a00; --flag-soft: #fdf3dd;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --serif: "IBM Plex Serif", Georgia, serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0e1016; --card: #161a22; --sunk: #1d222c; --ink: #e8ebf1;
+      --ink-soft: #99a3b4; --rule: #2a3140; --accent: #9aa9ff;
+      --accent-soft: #1b2142; --flag: #e0b341; --flag-soft: #2a2317;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0e1016; --card: #161a22; --sunk: #1d222c; --ink: #e8ebf1;
+    --ink-soft: #99a3b4; --rule: #2a3140; --accent: #9aa9ff;
+    --accent-soft: #1b2142; --flag: #e0b341; --flag-soft: #2a2317;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+         font-family: var(--sans); font-size: 15px; line-height: 1.55; }
+  .wrap { max-width: 860px; margin: 0 auto;
+          padding-block: 20px 28px; padding-left: 16px; padding-right: 16px; }
+
+  .masthead { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+              border-bottom: 2px solid var(--ink); padding-bottom: 10px; }
+  h1 { font-family: var(--serif); font-size: clamp(20px, 4vw, 27px); margin: 0;
+       font-weight: 500; letter-spacing: -0.015em; }
+  .masthead p { margin: 0; color: var(--ink-soft); font-size: 12.5px;
+                flex: 1 1 180px; min-width: 0; }
+  .ghost { font: inherit; font-size: 12px; cursor: pointer; color: var(--ink-soft);
+           background: none; border: 1px solid var(--rule); border-radius: 999px;
+           padding: 3px 11px; }
+  .ghost:hover { color: var(--ink); }
+
+  .thread { display: flex; flex-direction: column; gap: 16px; margin-top: 18px;
+            min-height: 160px; }
+  .turn { display: flex; flex-direction: column; gap: 6px; }
+  .turn.you { align-items: flex-end; }
+  .bubble { max-width: 100%; padding: 9px 13px; border-radius: 12px;
+            white-space: pre-wrap; overflow-wrap: anywhere; }
+  .you .bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+  .ai .bubble { background: var(--card); border: 1px solid var(--rule);
+                border-bottom-left-radius: 4px; font-family: var(--serif);
+                font-size: 14.5px; line-height: 1.62; }
+  mark.cite { background: var(--accent-soft); color: var(--accent); padding: 0 3px;
+              border-radius: 4px; font-family: var(--mono); font-size: 12.5px;
+              font-weight: 500; }
+
+  .meta { display: flex; gap: 9px; align-items: center; flex-wrap: wrap;
+          font-family: var(--mono); font-size: 11px; color: var(--ink-soft); }
+  .meta button { background: none; border: none; color: var(--ink-soft); padding: 0;
+                 font-family: var(--mono); font-size: 11px; cursor: pointer;
+                 text-decoration: underline; text-underline-offset: 2px; }
+  .meta button:hover { color: var(--accent); }
+  .drawer { border: 1px solid var(--rule); border-radius: 9px; background: var(--card);
+            overflow: hidden; }
+  .hit { padding: 9px 12px; border-bottom: 1px solid var(--rule); }
+  .hit:last-child { border-bottom: none; }
+  .hit .c { font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 600; }
+  .hit .t { font-size: 12px; color: var(--ink-soft); margin-top: 1px; }
+  .hit pre { margin: 7px 0 0; font-family: var(--serif); font-size: 12.5px;
+             white-space: pre-wrap; color: var(--ink-soft); max-height: 220px;
+             overflow: auto; }
+
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+  .chip { font-size: 12.5px; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+          border: 1px solid var(--rule); background: var(--card); color: var(--ink-soft); }
+  .chip:hover { color: var(--accent); border-color: var(--accent); }
+  .hello { color: var(--ink-soft); font-size: 13.5px; }
+
+  .composer { display: flex; gap: 8px; margin-top: 18px; position: sticky;
+              bottom: 0; background: var(--paper);
+              padding-bottom: env(safe-area-inset-bottom, 0px); padding-top: 10px; }
+  #q { flex: 1 1 auto; min-width: 0; font: inherit; font-size: 16px;
+       padding: 11px 14px; border-radius: 10px; border: 1.5px solid var(--rule);
+       background: var(--card); color: var(--ink); }
+  #q:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+  .send { font: inherit; font-weight: 600; cursor: pointer; padding: 11px 20px;
+          border: none; border-radius: 10px; background: var(--accent); color: #fff; }
+
+  .flag { background: var(--flag-soft); border: 1px solid var(--flag); color: var(--flag);
+          border-radius: 9px; padding: 10px 13px; font-size: 12.5px; margin-top: 16px; }
+  footer { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--rule);
+           font-size: 12px; color: var(--ink-soft); }
+</style>
+
+<div class="wrap">
+  <div class="masthead">
+    <h1>DPDP Clause Assistant</h1>
+    <p>Digital Personal Data Protection Act 2023 &middot; Rules 2025 (G.S.R. 846(E), gazetted 13 November 2025)</p>
+    <button class="ghost" id="themeBtn">theme</button>
+  </div>
+
+  <div class="thread" id="thread"></div>
+
+  <div class="composer">
+    <input id="q" type="text" autocomplete="off"
+           placeholder="Ask what the Act or the Rules require">
+    <button class="send" id="send">Ask</button>
+  </div>
+
+  <div class="flag" id="flag" hidden></div>
+
+  <footer>
+    Every line is quoted verbatim from the two source documents with its
+    citation &mdash; nothing is generated or paraphrased, so it cannot invent a
+    section number. It covers only those two documents: no CERT-In, RBI, SEBI
+    or IRDAI obligations. A research aid, not legal advice.
+  </footer>
+</div>
+
+<script type="application/json" id="corpusData">__CORPUS__</script>
+<script>
+(function () {
+  "use strict";
+  var DATA = JSON.parse(document.getElementById("corpusData").textContent);
+  var RECORDS = DATA.records, UNITS = DATA.units;
+
+__ENGINE_JS__
+
+__CHAT_JS__
+
+  var PENALTIES = null;
+  for (var i = 0; i < RECORDS.length; i++) {
+    if (RECORDS[i].cite === "The Schedule") { PENALTIES = DATA.penalties; break; }
+  }
+
+  var EXAMPLES = [
+    "how fast must I report a breach to the Board?",
+    "how long must I retain logs?",
+    "do I need parental consent for a 16 year old?",
+    "what is the penalty for a security failure?",
+    "what must a notice to the data principal say?",
+    "can I transfer personal data outside India?"
+  ];
+  var CITE_RE = /\b(?:Section|Rule)\s+\d+(?:\([0-9a-zA-Z]+\))*|\b(?:First|Second|Third|Fourth|Fifth|Sixth|Seventh)\s+Schedule(?:\s+Part\s+[A-D])?(?:\s+item\s+\d+)?|\bThe Schedule\b/g;
+
+  var turns = [];
+
+  function render() {
+    var t = document.getElementById("thread");
+    if (!turns.length) {
+      t.innerHTML = '<div class="hello">Ask anything about the DPDP Act 2023 or the ' +
+        'Rules 2025. Each answer quotes the clause it rests on, and you can open ' +
+        'the provisions it searched.</div><div class="chips">' +
+        EXAMPLES.map(function (q) { return '<button class="chip">' + esc(q) + "</button>"; })
+          .join("") + "</div>";
+      Array.prototype.forEach.call(t.querySelectorAll(".chip"), function (c) {
+        c.addEventListener("click", function () {
+          document.getElementById("q").value = c.textContent; ask();
+        });
+      });
+      return;
+    }
+    t.innerHTML = turns.map(function (m, i) {
+      if (m.role === "user") {
+        return '<div class="turn you"><div class="bubble">' + esc(m.content) + "</div></div>";
+      }
+      var body = esc(m.content).replace(CITE_RE, function (x) {
+        return '<mark class="cite">' + x + "</mark>";
+      });
+      var meta = '<div class="meta"><button data-i="' + i + '">' +
+        m.hits.length + " provisions searched</button></div>";
+      var drawer = "";
+      if (m.open) {
+        drawer = '<div class="drawer">' + m.hits.map(function (h) {
+          return '<div class="hit"><span class="c">' + esc(h.rec.cite) + "</span>" +
+            '<div class="t">' + esc(h.rec.src + " · " + h.rec.title) + "</div>" +
+            "<pre>" + esc(h.rec.text) + "</pre></div>";
+        }).join("") + "</div>";
+      }
+      return '<div class="turn ai"><div class="bubble">' + body + "</div>" +
+        meta + drawer + "</div>";
+    }).join("");
+    Array.prototype.forEach.call(t.querySelectorAll(".meta button"), function (b) {
+      b.addEventListener("click", function () {
+        var m = turns[+b.dataset.i]; m.open = !m.open; render();
+      });
+    });
+  }
+
+  function ask() {
+    var box = document.getElementById("q");
+    var q = box.value.trim();
+    if (!q) return;
+    box.value = "";
+    var history = turns.map(function (m) {
+      return { role: m.role, content: m.content };
+    });
+    var found = searchWithContext(q, history, 4);
+    var hits = found.hits;
+    var answer = respond(q, hits, history, PENALTIES, found.query);
+    turns.push({ role: "user", content: q });
+    turns.push({ role: "assistant", content: answer, hits: hits, open: false });
+    render();
+    document.getElementById("q").focus();
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+
+  document.getElementById("send").addEventListener("click", ask);
+  document.getElementById("q").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); ask(); }
+  });
+  document.getElementById("themeBtn").addEventListener("click", function () {
+    var cur = document.documentElement.getAttribute("data-theme");
+    var next = cur === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("dpdp-theme", next); } catch (_) {}
+  });
+  try {
+    var saved = localStorage.getItem("dpdp-theme");
+    if (saved) document.documentElement.setAttribute("data-theme", saved);
+  } catch (_) {}
+
+  if (DATA.meta.penaltiesVerified === false) {
+    var f = document.getElementById("flag");
+    f.hidden = false;
+    f.textContent = "Penalty figures come from the Act's Schedule, transcribed by " +
+      "hand because that table's columns scramble on extraction. Check them " +
+      "against the Gazette before relying on the amounts.";
+  }
+
+  render();
+  document.getElementById("q").focus();
+})();
+</script>

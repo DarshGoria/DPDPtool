@@ -1,0 +1,208 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 1010" width="1180" height="1010" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5a6472"/>
+    </marker>
+    <style>
+      .band { fill:#eef0f4; stroke:#dcdfe6; }
+      .bl   { fill:#5a6472; font-size:10.5px; font-weight:600; letter-spacing:.09em;
+              font-family:ui-monospace, Consolas, monospace; }
+      .box  { fill:#ffffff; stroke:#dcdfe6; }
+      .key  { fill:#ffffff; stroke:#2f3d9e; stroke-width:1.5; }
+      .new  { fill:#ffffff; stroke:#1a7f4b; stroke-width:1.5; }
+      .t    { fill:#15171c; font-size:12.5px; font-weight:600; }
+      .k    { fill:#2f3d9e; font-size:12.5px; font-weight:600; }
+      .g    { fill:#1a7f4b; font-size:12.5px; font-weight:600; }
+      .s    { fill:#5a6472; font-size:10.5px; }
+      .m    { fill:#5a6472; font-size:10.5px; font-family:ui-monospace, Consolas, monospace; }
+      .ar   { stroke:#5a6472; stroke-width:1.4; fill:none; marker-end:url(#a); }
+      .h1   { fill:#15171c; font-size:19px; font-weight:600; }
+      .h2   { fill:#5a6472; font-size:11.5px; }
+      .flag { fill:#8a5a00; font-size:10.5px; }
+      .num  { fill:#1a7f4b; font-size:11px; font-weight:600;
+              font-family:ui-monospace, Consolas, monospace; }
+    </style>
+  </defs>
+
+  <rect width="1180" height="1010" fill="#f6f7f9"/>
+  <text class="h1" x="40" y="34">DPDP Clause Assistant &#8212; what we built</text>
+  <text class="h2" x="40" y="52">Two Gazette documents in, cited clauses out. No external model API anywhere in the path. Green = added in the accuracy pass.</text>
+
+  <!-- BAND 1 -->
+  <rect class="band" x="40" y="70" width="1100" height="112" rx="10"/>
+  <text class="bl" x="56" y="88">BUILD &#8212; RUN ONCE, OFFLINE</text>
+
+  <rect class="box" x="70"  y="104" width="172" height="60" rx="7"/>
+  <text class="t" x="80" y="128">2 Gazette PDFs</text>
+  <text class="s" x="80" y="146">Act 2023 &#183; Rules 2025</text>
+
+  <rect class="box" x="287" y="104" width="172" height="60" rx="7"/>
+  <text class="t" x="297" y="128">extract.py</text>
+  <text class="m" x="297" y="146">pdftotext -enc UTF-8</text>
+
+  <rect class="box" x="504" y="104" width="172" height="60" rx="7"/>
+  <text class="t" x="514" y="128">plain text</text>
+  <text class="m" x="514" y="146">act2023.txt + rules</text>
+
+  <rect class="box" x="721" y="104" width="172" height="60" rx="7"/>
+  <text class="t" x="731" y="128">build_corpus.py</text>
+  <text class="s" x="731" y="146">section / rule / clause</text>
+
+  <rect class="key" x="938" y="104" width="172" height="60" rx="7"/>
+  <text class="k" x="948" y="128">corpus.json</text>
+  <text class="s" x="948" y="146">75 records &#183; 385 units</text>
+
+  <path class="ar" d="M248 134 H281"/>
+  <path class="ar" d="M465 134 H498"/>
+  <path class="ar" d="M682 134 H715"/>
+  <path class="ar" d="M899 134 H932"/>
+
+  <rect class="new" x="721" y="172" width="389" height="0" rx="7" opacity="0"/>
+  <text class="g" x="727" y="178">verify_penalties.py</text>
+  <text class="s" x="860" y="178">re-reads the Gazette's penalty table and derives the</text>
+  <text class="s" x="727" y="194">&#8220;verified&#8221; flag from that check, so the hand-typed amounts are earned, not asserted.</text>
+
+  <!-- BAND 2 -->
+  <rect class="band" x="40" y="212" width="1100" height="252" rx="10"/>
+  <text class="bl" x="56" y="230">RETRIEVAL CORE &#8212; PYTHON STDLIB ONLY, NO MODEL, NO NETWORK</text>
+
+  <rect class="box" x="60"  y="250" width="205" height="116" rx="7"/>
+  <text class="t" x="71" y="274">1 &#183; Expand the query</text>
+  <text class="s" x="71" y="294">40+ statutory synonyms,</text>
+  <text class="s" x="71" y="310">each from a question that</text>
+  <text class="s" x="71" y="326">actually failed: &#8220;scramble&#8221;</text>
+  <text class="s" x="71" y="342">&#8594; encryption, &#8220;watchdog&#8221;</text>
+  <text class="s" x="71" y="358">&#8594; the Board</text>
+
+  <rect class="box" x="283" y="250" width="205" height="116" rx="7"/>
+  <text class="t" x="294" y="274">2 &#183; Rank provisions</text>
+  <text class="s" x="294" y="294">BM25 over the 75 records</text>
+  <text class="m" x="294" y="310">retrieve.py</text>
+  <text class="m" x="294" y="326">k1 = 1.5, b = 0.75</text>
+
+  <rect class="box" x="506" y="250" width="205" height="116" rx="7"/>
+  <text class="t" x="517" y="274">3 &#183; Re-rank clauses</text>
+  <text class="s" x="517" y="294">BM25 re-fitted over 385</text>
+  <text class="s" x="517" y="310">sub-clauses, so a short</text>
+  <text class="s" x="517" y="326">on-point clause can beat</text>
+  <text class="s" x="517" y="342">a long omnibus one</text>
+
+  <rect class="new" x="729" y="250" width="205" height="116" rx="7"/>
+  <text class="g" x="740" y="274">4 &#183; Follow references</text>
+  <text class="s" x="740" y="294">Rule 6 points at section</text>
+  <text class="s" x="740" y="310">8(5); BM25 cannot find it,</text>
+  <text class="s" x="740" y="326">because the question&#8217;s</text>
+  <text class="s" x="740" y="342">words are in the clause</text>
+  <text class="s" x="740" y="358">that refers to it</text>
+
+  <rect class="new" x="952" y="250" width="166" height="116" rx="7"/>
+  <text class="g" x="963" y="274">5 &#183; Gate</text>
+  <text class="s" x="963" y="294">Score &#247; the expanded</text>
+  <text class="s" x="963" y="310">query, not the question,</text>
+  <text class="s" x="963" y="326">or every synonym</text>
+  <text class="s" x="963" y="342">inflates &#8220;in scope&#8221;</text>
+
+  <path class="ar" d="M271 308 H277"/>
+  <path class="ar" d="M494 308 H500"/>
+  <path class="ar" d="M717 308 H723"/>
+  <path class="ar" d="M940 308 H946"/>
+
+  <rect class="new" x="60" y="382" width="520" height="34" rx="7"/>
+  <text class="g" x="71" y="404">spell fallback</text>
+  <text class="s" x="155" y="404">&#8212; &#8220;is encrpytion mandatory&#8221; returned zero provisions</text>
+
+  <rect class="new" x="598" y="382" width="520" height="34" rx="7"/>
+  <text class="g" x="609" y="404">other-regime refusal</text>
+  <text class="s" x="730" y="404">&#8212; GDPR, tax, CERT-In, RBI are named, not answered</text>
+
+  <rect class="key" x="60" y="424" width="1058" height="30" rx="7"/>
+  <text class="k" x="71" y="444">top k clauses</text>
+  <text class="s" x="169" y="444">&#8212; each carries its own citation: Section 5(1), Rule 7(2)(b), Third Schedule item 3, The Schedule &#8230;</text>
+
+  <!-- BAND 3 -->
+  <rect class="band" x="40" y="488" width="1100" height="196" rx="10"/>
+  <text class="bl" x="56" y="506">ANSWER &#8212; BOTH ENGINES SEE EXACTLY THOSE CLAUSES AND NOTHING ELSE</text>
+
+  <path class="ar" d="M590 454 V484"/>
+
+  <rect class="key" x="60" y="522" width="518" height="104" rx="7"/>
+  <text class="k" x="74" y="546">Engine A &#8212; native (what Vercel serves)</text>
+  <text class="s" x="74" y="566">Builds the answer out of the quoted clause text itself.</text>
+  <text class="s" x="74" y="582">Verdict: complies / does not comply / not enough information.</text>
+  <text class="s" x="74" y="598">Knows <tspan font-style="italic">may</tspan> from <tspan font-style="italic">shall</tspan>, so permission is not read as obligation.</text>
+  <text class="s" x="74" y="614">Cannot invent a section number &#8212; it only ever quotes.</text>
+
+  <rect class="box" x="600" y="522" width="518" height="104" rx="7"/>
+  <text class="t" x="614" y="546">Engine B &#8212; local LLM (your laptop only)</text>
+  <text class="s" x="614" y="566">llama.cpp b12320, CPU &#183; Qwen2.5-3B-Instruct Q4_K_M, 2.1 GB</text>
+  <text class="m" x="614" y="582">127.0.0.1:8080 &#8212; OpenAI-compatible /v1/chat/completions</text>
+  <text class="s" x="614" y="598">Prompted with the retrieved clauses and the question, nothing more.</text>
+  <text class="s" x="614" y="614">Writes better prose; is the one that can fabricate a citation.</text>
+
+  <rect class="new" x="60" y="636" width="1058" height="34" rx="7"/>
+  <text class="g" x="74" y="658">citecheck.py</text>
+  <text class="s" x="152" y="658">&#8212; every citation an answer makes is sorted into <tspan font-weight="600">grounded</tspan> (it was retrieved), <tspan font-weight="600">off-context</tspan> (exists, was not retrieved) or <tspan font-weight="600">unknown</tspan> (fabricated). Bad ones get a warning strip.</text>
+
+  <!-- BAND 4 -->
+  <rect class="band" x="40" y="708" width="1100" height="172" rx="10"/>
+  <text class="bl" x="56" y="726">SERVING</text>
+
+  <rect class="box" x="60"  y="744" width="175" height="76" rx="7"/>
+  <text class="t" x="72" y="770">Lawyer&#8217;s browser</text>
+  <text class="s" x="72" y="788">one page, multi-turn,</text>
+  <text class="s" x="72" y="804">clause drawer per answer</text>
+
+  <rect class="key" x="275" y="744" width="255" height="76" rx="7"/>
+  <text class="k" x="287" y="770">Vercel &#8212; always on</text>
+  <text class="m" x="287" y="788">dpdp-clause-tool.vercel.app</text>
+  <text class="s" x="287" y="804">serves the page + Engine A</text>
+
+  <rect class="box" x="570" y="744" width="195" height="76" rx="7"/>
+  <text class="t" x="582" y="770">Cloudflare tunnel</text>
+  <text class="s" x="582" y="788">only while the laptop is up;</text>
+  <text class="s" x="582" y="804">new URL on every restart</text>
+
+  <rect class="box" x="805" y="744" width="313" height="76" rx="7"/>
+  <text class="t" x="817" y="770">Your laptop</text>
+  <text class="m" x="817" y="788">serve.py :8700 &#8212; SSE, traces.jsonl</text>
+  <text class="m" x="817" y="804">&#8594; llama-server :8080</text>
+
+  <path class="ar" d="M241 782 H269"/>
+  <path class="ar" d="M536 782 H564"/>
+  <path class="ar" d="M771 782 H799"/>
+
+  <rect class="new" x="60" y="832" width="1058" height="34" rx="7"/>
+  <text class="g" x="72" y="854">falls back to Vercel&#8217;s own engine</text>
+  <text class="s" x="268" y="854">when the laptop is unreachable, instead of every question failing &#183; optional</text>
+  <text class="m" x="770" y="854">DPDP_TOKEN</text>
+  <text class="s" x="853" y="854">guards the public tunnel</text>
+
+  <!-- BAND 5 -->
+  <rect class="band" x="40" y="904" width="1100" height="76" rx="10"/>
+  <text class="bl" x="56" y="922">MEASURED &#8212; FIVE HARNESSES, BECAUSE ONE OF THEM GRADING ITS OWN AUTHOR IS HOW 24/24 AND &#8220;30% ACCURACY&#8221; COEXISTED</text>
+
+  <text class="m" x="60" y="946">eval_coverage</text>
+  <text class="num" x="152" y="946">97%</text>
+  <text class="s" x="186" y="946">rank 1, all 75</text>
+
+  <text class="m" x="283" y="946">eval_paraphrase</text>
+  <text class="num" x="389" y="946">66 &#8594; 100%</text>
+  <text class="s" x="459" y="946">plain language</text>
+
+  <text class="m" x="570" y="946">eval_holdout</text>
+  <text class="num" x="652" y="946">44 &#8594; 100%</text>
+  <text class="s" x="722" y="946">written before tuning</text>
+
+  <text class="m" x="860" y="946">eval_final</text>
+  <text class="num" x="925" y="946">92%</text>
+  <text class="s" x="959" y="946">untuned, messy input</text>
+
+  <text class="m" x="60" y="968">test_parity</text>
+  <text class="num" x="135" y="968">18/18</text>
+  <text class="s" x="180" y="968">Python and the browser port agree &#183;</text>
+  <text class="m" x="400" y="968">eval_llm</text>
+  <text class="num" x="460" y="968">0</text>
+  <text class="s" x="472" y="968">fabricated citations from the native engine, over the real HTTP endpoint</text>
+
+  <text class="flag" x="40" y="998">Still true: only these two documents, no CERT-In / RBI / SEBI &#183; the 3B can still fabricate, which is why citations are checked rather than trusted &#183; 92% is the last untuned figure; the next honest one needs a sixth set.</text>
+</svg>

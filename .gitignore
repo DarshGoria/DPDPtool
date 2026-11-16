@@ -1,0 +1,21 @@
+# Local model runtime (2.1 GB) - download separately, see README
+llm/
+
+# Downloaded binaries
+tools/
+
+# Visitors' questions from the public tunnel - never publish
+data/traces.jsonl
+
+# Generated: python build_web.py
+dist/
+
+# Vercel link and secrets
+.vercel
+.env*
+
+# Local editor/agent settings
+.claude/
+
+__pycache__/
+*.pyc

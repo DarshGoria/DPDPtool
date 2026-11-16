@@ -1,0 +1,16 @@
+llm/
+tools/
+dist/
+data/traces.jsonl
+data/act2023.txt
+data/rules2025.txt
+
+# Harnesses and dev tooling: the function bundle is pinned by
+# vercel.json includeFiles, so these would only bloat the upload.
+eval*.py
+test_*.py
+verify_penalties.py
+build_web.py
+export_chat_tables.py
+web/
+architecture.svg

@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DPDP SLM Bench</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --panel-2: #eef0f4;
+    --ink: #16191d; --ink-dim: #5c6670; --line: #dde1e6;
+    --accent: #1f6feb; --accent-soft: #e7f0fe;
+    --good: #1a7f4b; --bad: #b3261e;
+    --warn: #8a5a00; --warn-soft: #fff6e0;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1216; --panel: #171b21; --panel-2: #1f242b;
+      --ink: #e6e9ee; --ink-dim: #9aa4b0; --line: #2b323a;
+      --accent: #549cff; --accent-soft: #16263f;
+      --good: #4ac47f; --bad: #ff7b72;
+      --warn: #e3b341; --warn-soft: #2a2317;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1216; --panel: #171b21; --panel-2: #1f242b;
+    --ink: #e6e9ee; --ink-dim: #9aa4b0; --line: #2b323a;
+    --accent: #549cff; --accent-soft: #16263f;
+    --good: #4ac47f; --bad: #ff7b72;
+    --warn: #e3b341; --warn-soft: #2a2317;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column;
+  }
+  [hidden] { display: none !important; }
+
+  /* header ---------------------------------------------------------------- */
+  header {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    background: var(--panel); flex: none;
+  }
+  h1 { font-size: 15px; margin: 0; letter-spacing: -0.01em; white-space: nowrap; }
+  .spacer { flex: 1 1 auto; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px;
+    padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line);
+    color: var(--ink-dim); white-space: nowrap;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-dim); }
+  .dot.up { background: var(--good); } .dot.down { background: var(--bad); }
+  label.ctl { font-size: 11.5px; color: var(--ink-dim); display: inline-flex; gap: 5px; align-items: center; }
+  select, input[type=number] {
+    font: inherit; font-size: 12.5px; padding: 4px 7px; border-radius: 7px;
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--ink);
+  }
+  input[type=number] { width: 54px; }
+  button { font: inherit; cursor: pointer; }
+  .ghost {
+    font-size: 12px; padding: 4px 10px; border-radius: 7px;
+    border: 1px solid var(--line); background: transparent; color: var(--ink-dim);
+  }
+  .ghost:hover:not(:disabled) { color: var(--ink); }
+  .ghost:disabled { opacity: .5; cursor: default; }
+
+  .banner {
+    background: var(--warn-soft); border-bottom: 1px solid var(--warn);
+    color: var(--warn); padding: 9px 16px; font-size: 12.5px; flex: none;
+  }
+  .banner code { font-family: var(--mono); font-size: 12px; }
+
+  /* conversation ---------------------------------------------------------- */
+  .scroll { flex: 1 1 auto; overflow-y: auto; }
+  .thread { max-width: 860px; margin: 0 auto; padding: 18px 16px 8px;
+            display: flex; flex-direction: column; gap: 16px; }
+
+  .turn { display: flex; flex-direction: column; gap: 5px; }
+  .turn.you { align-items: flex-end; }
+  .bubble {
+    max-width: 100%; padding: 9px 13px; border-radius: 12px;
+    white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere;
+  }
+  .you .bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+  .ai .bubble { background: var(--panel); border: 1px solid var(--line);
+                border-bottom-left-radius: 4px; font-size: 14.5px; }
+  .ai .bubble.err { color: var(--bad); border-color: var(--bad); }
+  mark.cite {
+    background: var(--accent-soft); color: var(--accent); padding: 0 3px;
+    border-radius: 4px; font-weight: 600; font-family: var(--mono); font-size: 12.5px;
+  }
+  .caret { display: inline-block; width: 7px; height: 14px; vertical-align: -2px;
+           background: var(--accent); animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
+
+  .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+          font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+  .meta button { background: none; border: none; color: var(--ink-dim);
+                 font-family: var(--mono); font-size: 11px; padding: 0;
+                 text-decoration: underline; text-underline-offset: 2px; }
+  .meta button:hover { color: var(--accent); }
+  .meta .rev.on { color: var(--good); text-decoration: none; }
+  .meta .rev.off { color: var(--bad); text-decoration: none; }
+  .meta .ok { color: var(--good); }
+  .citewarn { background: var(--warn-soft); border: 1px solid var(--warn);
+              color: var(--warn); border-radius: 9px; padding: 8px 12px;
+              font-size: 12.5px; margin-bottom: 6px; }
+  .citewarn b { font-weight: 600; }
+
+  .drawer { border: 1px solid var(--line); border-radius: 9px; background: var(--panel);
+            overflow: hidden; }
+  .drawer + .drawer { margin-top: 6px; }
+  .drawer pre {
+    margin: 0; padding: 10px 12px; font-family: var(--mono); font-size: 11.5px;
+    line-height: 1.5; white-space: pre-wrap; max-height: 300px; overflow: auto;
+    color: var(--ink-dim);
+  }
+  .hit { padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  .hit:last-child { border-bottom: none; }
+  .hit .c { font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 600; }
+  .hit .t { font-size: 12px; color: var(--ink-dim); margin-top: 1px; }
+  .hit .s { font-family: var(--mono); font-size: 10.5px; color: var(--ink-dim); }
+
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { font-size: 12px; padding: 5px 11px; border-radius: 999px;
+          border: 1px solid var(--line); background: var(--panel); color: var(--ink-dim); }
+  .chip:hover { color: var(--accent); border-color: var(--accent); }
+  .hello { color: var(--ink-dim); font-size: 13.5px; }
+
+  /* composer -------------------------------------------------------------- */
+  .composer { flex: none; border-top: 1px solid var(--line); background: var(--panel); }
+  .composer .inner { max-width: 860px; margin: 0 auto; padding: 10px 16px 14px;
+                     display: flex; gap: 8px; align-items: flex-end; }
+  #q {
+    flex: 1 1 auto; min-width: 0; font: inherit; font-size: 15px;
+    padding: 10px 13px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--ink); resize: none;
+    min-height: 44px; max-height: 180px; line-height: 1.45;
+  }
+  #q:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .send { padding: 10px 18px; border-radius: 10px; border: none;
+          background: var(--accent); color: #fff; font-weight: 600; font-size: 14px; }
+  .send:disabled { opacity: .5; cursor: default; }
+  .hintline { max-width: 860px; margin: 0 auto; padding: 0 16px 10px;
+              font-size: 11px; color: var(--ink-dim); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>DPDP SLM Bench</h1>
+  <span class="pill" id="corpusPill"><span class="dot"></span><span id="corpusTxt">loading</span></span>
+  <span class="spacer"></span>
+  <label class="ctl">engine <select id="engine"></select></label>
+  <label class="ctl" id="modelWrap">model <select id="model"></select></label>
+  <label class="ctl">k <input type="number" id="k" value="4" min="1" max="12"></label>
+  <button class="ghost" id="clear">New chat</button>
+  <button class="ghost" id="themeBtn">theme</button>
+</header>
+
+<div class="banner" id="banner" hidden></div>
+
+<div class="scroll" id="scroll">
+  <div class="thread" id="thread"></div>
+</div>
+
+<div class="composer">
+  <div class="inner">
+    <textarea id="q" rows="1" placeholder="Ask about the Act or the Rules. Follow-ups work &mdash; it remembers this conversation."></textarea>
+    <button class="send" id="send">Send</button>
+  </div>
+  <div class="hintline">Enter sends &middot; Shift+Enter newline. Answers are grounded in retrieved provisions only; every answer shows exactly what was retrieved and what prompt was sent.</div>
+</div>
+
+<script>
+// When the page is served from somewhere that cannot host a model, the
+// backend is injected at serve time and every call goes there instead.
+// The browser talks to it directly, so no proxy timeout applies.
+// Mutable: health() clears it if the configured backend is unreachable, so
+// every later call goes to this origin instead. See reachBackend().
+let API = (window.DPDP_BACKEND || '').replace(/\/+$/, '');
+// A token-protected bench is shared as ...?k=<token>; carry it on every call
+// so the link is the only thing anyone has to be given. Kept in the query
+// string rather than localStorage so revoking it is just a new token.
+const KEY = new URLSearchParams(location.search).get('k') || '';
+const api = path => API + path + (KEY ? (path.includes('?') ? '&' : '?') + 'k=' + encodeURIComponent(KEY) : '');
+
+const el = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const CITE = /\b(?:Section|Rule)\s+\d+(?:\([0-9a-zA-Z]+\))*|\b(?:First|Second|Third|Fourth|Fifth|Sixth|Seventh)\s+Schedule\b|\bThe Schedule\b/g;
+const markCites = h => h.replace(CITE, m => '<mark class="cite">' + m + '</mark>');
+
+const EXAMPLES = [
+  "how fast must I report a breach to the Board?",
+  "what security measures are mandatory at minimum?",
+  "how long must I retain logs?",
+  "when do I need verifiable parental consent?"
+];
+
+// turns: {role:'user'|'assistant', content, hits?, prompt?, stats?, traceId?, reviewed?, error?}
+let turns = [];
+let busy = false;
+let ENGINES = {}, DEFAULT_MODEL = "", CORPUS_N = 0;
+
+const ENGINE_LABEL = {
+  native: "Built-in (ours, no model)",
+  ollama: "Ollama",
+  openai: "OpenAI-compatible"
+};
+
+function syncModels() {
+  const name = el('engine').value;
+  const e = ENGINES[name] || { models: [] };
+  el('modelWrap').hidden = (name === 'native');
+  const opts = e.models.length ? e.models : [DEFAULT_MODEL];
+  el('model').innerHTML = opts.map(m => '<option>' + esc(m) + '</option>').join('');
+}
+
+function render() {
+  const t = el('thread');
+  if (!turns.length) {
+    t.innerHTML =
+      '<div class="hello">Ask anything about the DPDP Act 2023 or the Rules 2025. ' +
+      'This is a bench: each answer shows the provisions it retrieved and the exact ' +
+      'prompt sent, so you can tell a retrieval problem from a model problem.</div>' +
+      '<div class="chips">' + EXAMPLES.map(q => '<button class="chip">' + esc(q) + '</button>').join('') + '</div>';
+    t.querySelectorAll('.chip').forEach(c =>
+      c.onclick = () => { el('q').value = c.textContent; send(); });
+    return;
+  }
+
+  t.innerHTML = turns.map((m, i) => {
+    if (m.role === 'user') {
+      return '<div class="turn you"><div class="bubble">' + esc(m.content) + '</div></div>';
+    }
+    const body = m.content
+      ? markCites(esc(m.content)) + (m.streaming ? '<span class="caret"></span>' : '')
+      : '<span class="caret"></span>';
+
+    let meta = '';
+    if (!m.streaming) {
+      const bits = [];
+      if (m.hits && m.hits.length) bits.push('<button data-act="hits" data-i="' + i + '">' + m.hits.length + ' provisions</button>');
+      if (m.prompt) bits.push('<button data-act="prompt" data-i="' + i + '">prompt ' + m.prompt.length.toLocaleString() + ' ch</button>');
+      if (m.stats) bits.push('<span>' + esc(m.stats) + '</span>');
+      if (m.traceId) {
+        const r = m.reviewed;
+        bits.push('<button class="rev ' + (r === 'good' ? 'on' : '') + '" data-act="good" data-i="' + i + '">' + (r === 'good' ? '✓ good' : 'good') + '</button>');
+        bits.push('<button class="rev ' + (r === 'bad' ? 'off' : '') + '" data-act="bad" data-i="' + i + '">' + (r === 'bad' ? '✗ wrong' : 'wrong') + '</button>');
+      }
+      if (m.cites && !m.cites.warning && m.cites.grounded.length) {
+        bits.push('<span class="ok">&#10003; ' + m.cites.grounded.length +
+          ' citation' + (m.cites.grounded.length === 1 ? '' : 's') + ' verified</span>');
+      }
+      if (bits.length) meta = '<div class="meta">' + bits.join('') + '</div>';
+    }
+
+    // A fabricated section number reads as precision, so it gets its own
+    // strip above the answer rather than a line in the metadata row.
+    let alert = '';
+    if (m.cites && m.cites.warning) {
+      alert = '<div class="citewarn"><b>Check these citations.</b> ' +
+        esc(m.cites.warning) + '</div>';
+    }
+
+    let drawers = '';
+    if (m.showHits && m.hits) {
+      drawers += '<div class="drawer">' + m.hits.map(h =>
+        '<div class="hit"><span class="c">' + esc(h.citation) + '</span> ' +
+        '<span class="s">' + h.score + '</span>' +
+        '<div class="t">' + esc(h.source + ' · ' + h.title) + '</div></div>').join('') + '</div>';
+    }
+    if (m.showPrompt && m.prompt) {
+      drawers += '<div class="drawer"><pre>' + esc(m.prompt) + '</pre></div>';
+    }
+
+    return '<div class="turn ai">' + alert +
+      '<div class="bubble' + (m.error ? ' err' : '') + '">' + body + '</div>' +
+      meta + drawers + '</div>';
+  }).join('');
+
+  t.querySelectorAll('.meta button').forEach(b => {
+    b.onclick = () => {
+      const i = +b.dataset.i, act = b.dataset.act;
+      if (act === 'hits') turns[i].showHits = !turns[i].showHits;
+      else if (act === 'prompt') turns[i].showPrompt = !turns[i].showPrompt;
+      else review(i, act);
+      render();
+    };
+  });
+}
+
+function atBottom() {
+  const s = el('scroll');
+  return s.scrollHeight - s.scrollTop - s.clientHeight < 80;
+}
+function toBottom() { const s = el('scroll'); s.scrollTop = s.scrollHeight; }
+
+async function review(i, verdict) {
+  const m = turns[i];
+  if (!m.traceId) return;
+  m.reviewed = verdict;
+  render();
+  try {
+    await fetch(api('/api/review'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: m.traceId, verdict })
+    });
+  } catch (_) { /* the verdict is only a training label; losing one is fine */ }
+}
+
+function setBusy(on) {
+  busy = on;
+  el('send').disabled = on;
+  el('send').textContent = on ? '...' : 'Send';
+}
+
+async function send() {
+  const box = el('q');
+  const question = box.value.trim();
+  if (!question || busy) return;
+  box.value = ''; box.style.height = 'auto';
+  setBusy(true);
+
+  turns.push({ role: 'user', content: question });
+  const slot = turns.length;
+  turns.push({ role: 'assistant', content: '', streaming: true });
+  render(); toBottom();
+
+  // Everything before this exchange, for follow-up questions.
+  const history = turns.slice(0, slot - 1)
+    .filter(m => m.content && !m.error)
+    .map(m => ({ role: m.role, content: m.content }));
+
+  const m = turns[slot];
+  let t0 = performance.now(), tFirst = null;
+
+  try {
+    const resp = await fetch(api('/api/ask'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question, history,
+        k: +el('k').value,
+        model: el('model').value,
+        engine: el('engine').value
+      })
+    });
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const frames = buf.split('\n\n');
+      buf = frames.pop();
+      for (const frame of frames) {
+        const line = frame.split('\n').find(l => l.startsWith('data: '));
+        if (!line) continue;
+        const ev = JSON.parse(line.slice(6));
+        const stick = atBottom();
+
+        if (ev.type === 'retrieved') {
+          m.hits = ev.hits;
+          t0 = performance.now();
+        } else if (ev.type === 'prompt') {
+          m.prompt = ev.prompt;
+        } else if (ev.type === 'token') {
+          if (tFirst === null) tFirst = performance.now();
+          m.content += ev.t;
+        } else if (ev.type === 'citations') {
+          m.cites = ev;
+        } else if (ev.type === 'answer_done') {
+          m.content = ev.answer;
+          m.traceId = ev.id;
+          m.streaming = false;
+          const secs = (performance.now() - t0) / 1000;
+          const words = m.content.trim().split(/\s+/).filter(Boolean).length;
+          m.stats = secs < 0.1
+            ? 'instant · ' + words + ' words'
+            : secs.toFixed(1) + 's' +
+              (tFirst ? ' · first token ' + ((tFirst - t0) / 1000).toFixed(1) + 's' : '') +
+              ' · ' + (words / secs).toFixed(1) + ' w/s';
+        } else if (ev.type === 'error') {
+          m.streaming = false;
+          m.error = true;
+          m.content = 'Engine "' + ev.engine + '" unreachable at ' + ev.host +
+            ' (' + ev.message + ').\n\nSwitch the engine to "Extractive (no model)" ' +
+            'in the header for a cited answer with nothing installed.';
+        }
+        render();
+        if (stick) toBottom();
+      }
+    }
+  } catch (e) {
+    m.streaming = false; m.error = true;
+    m.content = 'Request failed: ' + e.message;
+  }
+  m.streaming = false;
+  setBusy(false);
+  render(); toBottom();
+  el('q').focus();
+}
+
+// When the page is served from Vercel but points at a laptop through a
+// tunnel, the laptop is the fragile half: it sleeps, the tunnel dies, the URL
+// changes. Falling back to this origin keeps the built-in engine answering
+// instead of handing a lawyer a page where every question fails.
+let FELL_BACK = false;
+
+async function reachBackend() {
+  const tryOnce = async (base) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    try {
+      const r = await fetch(base + '/api/health' + (KEY ? '?k=' + encodeURIComponent(KEY) : ''),
+                            { signal: controller.signal });
+      if (!r.ok) throw new Error(r.status);
+      return await r.json();
+    } finally { clearTimeout(timer); }
+  };
+  if (!API) return await tryOnce('');
+  try {
+    return await tryOnce(API);
+  } catch (e) {
+    // The configured backend is down; this origin still serves the corpus.
+    FELL_BACK = true;
+    API = '';
+    return await tryOnce('');
+  }
+}
+
+async function health() {
+  try {
+    const h = await reachBackend();
+    CORPUS_N = h.records; ENGINES = h.engines; DEFAULT_MODEL = h.default_model;
+    el('corpusTxt').textContent = h.records + ' provisions';
+    el('corpusPill').querySelector('.dot').classList.add('up');
+
+    // A model server can only ever run beside the bench, so on the hosted
+    // deployment the other engines are not choices - showing them greyed out
+    // just reads as something being broken.
+    const order = h.hosted ? ['native'] : ['ollama', 'openai', 'native'];
+    // On the local bench, default to whatever model is running - that is the
+    // thing being tested. On a published page pointing at a laptop (API set),
+    // default to the built-in engine instead: it answers instantly, does not
+    // queue behind one model process, and is the one that cites only what it
+    // was shown. The dropdown still offers the model to anyone who wants it.
+    const shared = !!API;
+    const chosen = shared
+      ? 'native'
+      : (order.find(n => ENGINES[n] && ENGINES[n].available) || 'native');
+    el('engine').innerHTML = order.map(n =>
+      '<option value="' + n + '"' + (n === chosen ? ' selected' : '') + '>' +
+      ENGINE_LABEL[n] + (ENGINES[n].available ? '' : ' – not running') +
+      '</option>').join('');
+    syncModels();
+    if (h.hosted) {
+      el('engine').disabled = true;
+      el('engine').parentElement.hidden = true;
+      el('modelWrap').hidden = true;
+    }
+
+    const b = el('banner');
+    if (FELL_BACK) {
+      b.hidden = false;
+      b.innerHTML = 'The machine running the language model is not reachable, so ' +
+        'this is answering with the <strong>built-in engine</strong>: it quotes the ' +
+        'Act and the Rules verbatim with citations, and cannot invent a section ' +
+        'number. Everything here is still usable &mdash; only the generated ' +
+        'phrasing is unavailable.';
+    } else if (h.hosted) {
+      b.hidden = false;
+      b.innerHTML = 'Answers quote the DPDP Act 2023 and Rules 2025 verbatim with ' +
+        'their citations &mdash; nothing is generated or paraphrased, so no section ' +
+        'number can be invented. Open <strong>provisions</strong> under any answer ' +
+        'to check what it searched. Covers those two documents only: no CERT-In, ' +
+        'RBI, SEBI or IRDAI obligations.';
+    } else if (chosen === 'native') {
+      b.hidden = false;
+      b.innerHTML = 'Running on the <strong>built-in engine</strong> &mdash; ours, ' +
+        'no model, no API, nothing installed. It carries the topic across turns, works ' +
+        'out what kind of answer you want, and leads with the fact. Every word is ' +
+        'either a fixed phrase or statute quoted verbatim, so it cannot invent a ' +
+        'citation &mdash; but it cannot reason about your situation or draft anything. ' +
+        'For that, start a local model and reload.';
+    }
+  } catch (e) {
+    el('corpusTxt').textContent = 'server unreachable';
+  }
+}
+
+el('send').onclick = send;
+el('engine').onchange = syncModels;
+el('clear').onclick = () => { turns = []; render(); el('q').focus(); };
+el('q').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+el('q').addEventListener('input', e => {
+  e.target.style.height = 'auto';
+  e.target.style.height = Math.min(e.target.scrollHeight, 180) + 'px';
+});
+el('themeBtn').onclick = () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('dpdp-theme', next); } catch (_) {}
+};
+try {
+  const saved = localStorage.getItem('dpdp-theme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+} catch (_) {}
+
+render();
+health();
+el('q').focus();
+</script>
+</body>
+</html>

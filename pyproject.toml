@@ -1,0 +1,9 @@
+[project]
+name = "dpdp-clause-tool"
+version = "1.0.0"
+description = "DPDP Act 2023 and Rules 2025 clause lookup"
+requires-python = ">=3.9"
+dependencies = []
+
+[tool.vercel]
+entrypoint = "api.index:handler"

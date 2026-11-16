@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/index.py": {
+      "includeFiles": "{data/corpus.json,ui.html,webapi.py,retrieve.py,chat.py,baseline.py,ask.py,citecheck.py}"
+    }
+  }
+}
